@@ -25,7 +25,7 @@ class AzuDlGC2GD:
     def __init__(self):
         self.project_name = "AzuDl - GC2GD"
         self.project_subtitle = "Azizi Universal Downloader - Google Colab to Google Drive"
-        self.version = "1.2.8"
+        self.version = "1.3.0"
 
         self.drive_mount_path = Path("/content/drive")
         self.my_drive_path = self.drive_mount_path / "MyDrive"
@@ -515,7 +515,7 @@ class AzuDlGC2GD:
         source = source.strip()
 
         headers = {
-            "User-Agent": "Mozilla/5.0 AzuDl-GC2GD/1.2.8",
+            "User-Agent": "Mozilla/5.0 AzuDl-GC2GD/1.3.0",
             "Accept": "application/x-bittorrent,application/octet-stream,*/*"
         }
 
@@ -629,40 +629,36 @@ class AzuDlGC2GD:
         except Exception:
             return False
 
-    def build_torrent_options(self, private=False, seed=False, check_integrity=False):
+    def build_torrent_options(self, private=False, seed=False):
         if seed:
             seed_time = "525600"
         else:
             seed_time = "0"
 
-        options = {
-            "seed-time": seed_time,
-            "seed-ratio": "0.0",
-            "bt-request-peer-speed-limit": "50K",
-            "bt-save-metadata": "true",
-            "bt-load-saved-metadata": "true"
-        }
-
         if private:
-            options.update({
+            return {
+                "seed-time": seed_time,
+                "seed-ratio": "0.0",
                 "enable-dht": "false",
                 "enable-dht6": "false",
                 "enable-peer-exchange": "false",
-                "bt-enable-lpd": "false"
-            })
-        else:
-            options.update({
-                "enable-dht": "true",
-                "enable-dht6": "true",
-                "enable-peer-exchange": "true",
-                "bt-enable-lpd": "true"
-            })
+                "bt-enable-lpd": "false",
+                "bt-save-metadata": "true",
+                "bt-load-saved-metadata": "true",
+                "bt-request-peer-speed-limit": "50K"
+            }
 
-
-        if check_integrity:
-            options["check-integrity"] = "true"
-
-        return options
+        return {
+            "seed-time": seed_time,
+            "seed-ratio": "0.0",
+            "enable-dht": "true",
+            "enable-dht6": "true",
+            "enable-peer-exchange": "true",
+            "bt-enable-lpd": "true",
+            "bt-save-metadata": "true",
+            "bt-load-saved-metadata": "true",
+            "bt-request-peer-speed-limit": "50K"
+        }
 
     def get_aria2_status(self, gid):
         keys = [
@@ -1035,7 +1031,7 @@ class AzuDlGC2GD:
 
             time.sleep(1)
 
-    def download_magnet(self, magnet, folder_name="", speed_limit="", private=False, seed=False, check_integrity=False):
+    def download_magnet(self, magnet, folder_name="", speed_limit="", private=False, seed=False):
         magnet = magnet.strip()
         folder_name = self.sanitize_name(folder_name)
         save_dir = self.torrent_dir / folder_name
@@ -1046,8 +1042,7 @@ class AzuDlGC2GD:
 
         options = self.build_torrent_options(
             private=private,
-            seed=seed,
-            check_integrity=check_integrity
+            seed=seed
         )
 
         gid = self.add_aria2_download([magnet], save_dir, speed_limit, options)
@@ -1078,7 +1073,7 @@ class AzuDlGC2GD:
         print("Download completed")
         print("Saved to:", save_dir)
 
-    def download_torrent_file(self, source, folder_name="", speed_limit="", private=False, seed=False, check_integrity=False):
+    def download_torrent_file(self, source, folder_name="", speed_limit="", private=False, seed=False):
         source = source.strip()
         folder_name = self.sanitize_name(folder_name)
         save_dir = self.torrent_dir / folder_name
@@ -1100,19 +1095,13 @@ class AzuDlGC2GD:
                 print("Existing GID:", existing_gid)
                 print("Existing status:", existing_status)
 
-
-                if existing_status == "error" or check_integrity:
-                    if check_integrity:
-                        print("Force recheck requested.")
-                        print("Removing existing session data to re-verify files on disk.")
-                    else:
-                        print("Existing torrent is in error state.")
-                        print("Removing old GID and adding again.")
-
+                if existing_status == "error":
+                    print("Existing torrent is in error state")
+                    print("Removing old GID and adding again")
                     removed = self.remove_existing_torrent_gid(existing_gid)
 
                     if not removed:
-                        raise RuntimeError("Could not remove existing torrent GID")
+                        raise RuntimeError("Could not remove existing errored torrent GID")
 
                 else:
                     print("Using existing torrent instead of adding duplicate")
@@ -1128,10 +1117,10 @@ class AzuDlGC2GD:
 
                     print("Torrent handled with existing GID")
                     return
+
         options = self.build_torrent_options(
             private=private,
-            seed=seed,
-            check_integrity=check_integrity
+            seed=seed
         )
 
         try:
@@ -1197,8 +1186,7 @@ class AzuDlGC2GD:
         speed_limit = input("Speed limit optional, example 5M: ").strip()
         seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
         seed = seed_answer == "y"
-        check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
-        check_integrity = check_answer == "y"
+
         if not source:
             print("No torrent source entered")
             return
@@ -1220,8 +1208,7 @@ class AzuDlGC2GD:
             folder_name=folder_name,
             speed_limit=speed_limit,
             private=True,
-            seed=seed,
-            check_integrity=check_integrity
+            seed=seed
         )
 
     def torrent_menu(self):
@@ -1248,17 +1235,13 @@ class AzuDlGC2GD:
                     speed_limit = input("Speed limit optional, example 5M: ").strip()
                     seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
                     seed = seed_answer == "y"
-                    check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
-                    check_integrity = check_answer == "y"
-
 
                     self.download_magnet(
                         magnet=magnet,
                         folder_name=folder_name,
                         speed_limit=speed_limit,
                         private=False,
-                        seed=seed,
-                        check_integrity=check_integrity
+                        seed=seed
                     )
 
                 elif choice == "2":
@@ -1267,16 +1250,13 @@ class AzuDlGC2GD:
                     speed_limit = input("Speed limit optional, example 5M: ").strip()
                     seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
                     seed = seed_answer == "y"
-                    check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
-                    check_integrity = check_answer == "y"
 
                     self.download_torrent_file(
                         source=source,
                         folder_name=folder_name,
                         speed_limit=speed_limit,
                         private=False,
-                        seed=seed,
-                        check_integrity=check_integrity
+                        seed=seed
                     )
 
                 elif choice == "3":
@@ -1368,134 +1348,109 @@ class AzuDlGC2GD:
         print("Download completed")
         print("Saved to:", save_dir)
 
-    def list_youtube_formats(self, url):
+    # ─────────────────────────────────────────────────────────────────────────
+    # YouTube
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def get_youtube_available_qualities(self, url):
+        """
+        Fetch video info once and return only the quality levels that actually
+        exist as video streams, plus always "best" as first option.
+        Returns (qualities_list, info_dict).
+        """
         with YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
             info = ydl.extract_info(url, download=False)
 
         formats = info.get("formats", [])
-        rows = []
+        standard_heights = [4320, 2160, 1440, 1080, 720, 480, 360, 240, 144]
 
-        for item in formats:
-            format_id = item.get("format_id")
-            ext = item.get("ext")
-            height = item.get("height")
-            width = item.get("width")
-            fps = item.get("fps")
-            vcodec = item.get("vcodec")
-            acodec = item.get("acodec")
-            filesize = item.get("filesize") or item.get("filesize_approx")
-            note = item.get("format_note") or ""
+        available_heights = set()
+        for f in formats:
+            h = f.get("height")
+            vcodec = f.get("vcodec", "none")
+            if h and vcodec and vcodec != "none":
+                available_heights.add(int(h))
 
-            if not format_id:
-                continue
+        qualities = ["best"]
+        for h in standard_heights:
+            if h in available_heights:
+                qualities.append(str(h))
 
-            kind = "video+audio"
+        return qualities, info
 
-            if vcodec != "none" and acodec == "none":
-                kind = "video only"
-            elif vcodec == "none" and acodec != "none":
-                kind = "audio only"
-
-            size = self.format_bytes(filesize) if filesize else "unknown"
-
-            rows.append({
-                "id": format_id,
-                "kind": kind,
-                "ext": ext or "",
-                "resolution": f"{width or ''}x{height or ''}".strip("x") if height else "audio",
-                "fps": fps or "",
-                "size": size,
-                "note": note
-            })
-
-        return rows
-
-    def print_youtube_formats(self, url):
-        rows = self.list_youtube_formats(url)
-
-        print("Available formats:")
-        print("-" * 120)
-        print(f"{'ID':<12} {'TYPE':<14} {'EXT':<8} {'RESOLUTION':<14} {'FPS':<6} {'SIZE':<14} NOTE")
-        print("-" * 120)
-
-        for row in rows:
-            print(
-                f"{row['id']:<12} "
-                f"{row['kind']:<14} "
-                f"{row['ext']:<8} "
-                f"{row['resolution']:<14} "
-                f"{str(row['fps']):<6} "
-                f"{row['size']:<14} "
-                f"{row['note']}"
-            )
-
-        print("-" * 120)
-        print("Tip:")
-        print("If a format is video only, use format_id+audio_id, for example 137+140.")
-        print("If you enter only a video-only format ID, AzuDl will try to add best audio automatically.")
-
-    def normalize_youtube_custom_format(self, url, custom_format):
-        custom_format = str(custom_format or "").strip()
-
-        if not custom_format:
-            return ""
-
-        if "+" in custom_format or "/" in custom_format:
-            return custom_format
+    def select_youtube_quality(self, url):
+        """
+        Fetch video info, ask audio/video preference, then show only the
+        quality options the video actually has.
+        Returns (quality_string, audio_only_bool).
+        """
+        print("Fetching video info...")
 
         try:
-            with YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
-                info = ydl.extract_info(url, download=False)
-
-            formats = info.get("formats", [])
-
-            for item in formats:
-                if str(item.get("format_id")) == custom_format:
-                    vcodec = item.get("vcodec")
-                    acodec = item.get("acodec")
-
-                    if vcodec != "none" and acodec == "none":
-                        print("Selected custom format is video only")
-                        print("Auto adding best available audio")
-                        return f"{custom_format}+ba/best"
-
-                    if vcodec == "none" and acodec != "none":
-                        print("Selected custom format is audio only")
-                        return custom_format
-
-                    return custom_format
-
+            qualities, info = self.get_youtube_available_qualities(url)
         except Exception as error:
-            print("Could not inspect custom format:", error)
+            print("Could not fetch video info:", error)
+            print("Falling back to best quality")
+            return "best", False
 
-        return f"{custom_format}+ba/best"
+        title = info.get("title", "")
+        duration = info.get("duration", 0)
+        uploader = info.get("uploader", "")
 
-    def build_youtube_format(self, quality, audio_only, custom_format):
+        print("-" * 60)
+        if title:
+            print("Title   :", title)
+        if uploader:
+            print("Channel :", uploader)
+        if duration:
+            print("Duration:", self.format_seconds(int(duration)))
+        print("-" * 60)
+
+        audio_answer = input("Audio only? y/n: ").strip().lower()
+        if audio_answer == "y":
+            return "best", True
+
+        print("Available qualities:")
+        for i, q in enumerate(qualities, 1):
+            label = "Best available" if q == "best" else f"{q}p"
+            print(f"  {i}. {label}")
+
+        choice = input(f"Select quality (1-{len(qualities)}, default 1): ").strip()
+
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(qualities):
+                selected = qualities[idx]
+                label = "Best available" if selected == "best" else f"{selected}p"
+                print("Selected:", label)
+                return selected, False
+
+        print("Invalid selection, using best quality")
+        return "best", False
+
+    def build_youtube_format(self, quality, audio_only):
+        """
+        Build a yt-dlp format string.
+        For video downloads, audio is always merged — no silent video possible.
+        """
         quality = str(quality or "best").strip().lower()
-        custom_format = str(custom_format or "").strip()
 
         if audio_only:
             return "bestaudio/best"
 
-        if custom_format:
-            if "+" in custom_format or "/" in custom_format:
-                return custom_format
-
-            return f"{custom_format}+ba/best"
-
         if quality == "best":
             return "bv*[vcodec!=none]+ba/bestvideo+bestaudio/best"
 
-        if quality in ["4320", "2160", "1440", "1080", "720", "480", "360"]:
+        if quality in ["4320", "2160", "1440", "1080", "720", "480", "360", "240", "144"]:
             return (
-                f"bv*[height<={quality}][vcodec!=none]+ba/"
-                f"bestvideo[height<={quality}]+bestaudio/"
+                f"bestvideo[height={quality}][vcodec!=none]+bestaudio/"
+                f"bestvideo[height<={quality}][vcodec!=none]+bestaudio/"
                 f"best[height<={quality}]/best"
             )
 
         return "bv*[vcodec!=none]+ba/bestvideo+bestaudio/best"
 
-    def download_youtube(self, url, folder_name="", quality="best", audio_only=False, custom_format="", playlist=True, metadata=False):
+    def download_youtube(self, url, folder_name="", quality="best", audio_only=False, playlist=True, metadata=False):
         url = url.strip()
         folder_name = self.sanitize_name(folder_name)
         save_dir = self.youtube_dir / folder_name
@@ -1541,8 +1496,7 @@ class AzuDlGC2GD:
                 progress_state["last"] = 0
                 print("Processing file")
 
-        custom_format = self.normalize_youtube_custom_format(url, custom_format)
-        selected_format = self.build_youtube_format(quality, audio_only, custom_format)
+        selected_format = self.build_youtube_format(quality, audio_only)
 
         if audio_only:
             postprocessors = [
@@ -1595,6 +1549,8 @@ class AzuDlGC2GD:
         print("Download completed")
         print("Saved to:", save_dir)
 
+    # ─────────────────────────────────────────────────────────────────────────
+
     def auto_download(self, value):
         link_type = self.detect_link_type(value)
 
@@ -1609,48 +1565,30 @@ class AzuDlGC2GD:
             speed_limit = input("Speed limit optional, example 5M: ").strip()
             seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
             seed = seed_answer == "y"
-            check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
-            check_integrity = check_answer == "y"
 
             self.download_magnet(
                 value,
                 folder_name,
                 speed_limit,
                 private=False,
-                seed=seed,
-                check_integrity=check_integrity
+                seed=seed
             )
 
         elif link_type == "torrent_file":
             speed_limit = input("Speed limit optional, example 5M: ").strip()
             seed_answer = input("Keep seeding after download? y/n: ").strip().lower()
             seed = seed_answer == "y"
-            check_answer = input("Force recheck existing files (check integrity)? y/n: ").strip().lower()
-            check_integrity = check_answer == "y"
+
             self.download_torrent_file(
                 value,
                 folder_name,
                 speed_limit,
                 private=False,
-                seed=seed,
-                check_integrity=check_integrity
+                seed=seed
             )
 
         elif link_type == "youtube":
-            show_formats = input("Show available formats? y/n: ").strip().lower()
-
-            if show_formats == "y":
-                self.print_youtube_formats(value)
-
-            audio = input("Audio only? y/n: ").strip().lower()
-            audio_only = audio == "y"
-
-            if audio_only:
-                quality = "best"
-            else:
-                quality = input("Quality best, 4320, 2160, 1440, 1080, 720, 480, 360: ").strip() or "best"
-
-            custom_format = input("Custom format ID optional: ").strip()
+            quality, audio_only = self.select_youtube_quality(value)
             playlist_answer = input("Download playlist if detected? y/n: ").strip().lower()
             playlist = playlist_answer != "n"
             metadata_answer = input("Save YouTube metadata and thumbnail? y/n: ").strip().lower()
@@ -1661,7 +1599,6 @@ class AzuDlGC2GD:
                 folder_name=folder_name,
                 quality=quality,
                 audio_only=audio_only,
-                custom_format=custom_format,
                 playlist=playlist,
                 metadata=metadata
             )
@@ -1717,7 +1654,6 @@ class AzuDlGC2GD:
                         folder_name=batch_folder,
                         quality="best",
                         audio_only=False,
-                        custom_format="",
                         playlist=True,
                         metadata=False
                     )
@@ -1795,7 +1731,7 @@ class AzuDlGC2GD:
 
         with file_path.open("rb") as f, tqdm(total=total, unit="B", unit_scale=True, unit_divisor=1024, desc="SHA256") as bar:
             while True:
-                chunk = f.read(1024 * 1024)
+                chunk = f.read(1 * 1024 * 1024)
 
                 if not chunk:
                     break
@@ -1854,18 +1790,24 @@ class AzuDlGC2GD:
             output_name = source_path.name + "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         output_name = self.sanitize_name(output_name)
-        output_base = self.archive_dir / output_name
 
-        print("Creating ZIP...")
-        result = shutil.make_archive(str(output_base), "zip", str(source_path))
 
-        print("ZIP created:")
-        print(result)
+        local_base = Path("/content") / output_name
+        final_dest = self.archive_dir / f"{output_name}.zip"
+
+        print("Creating ZIP locally on fast SSD...")
+        local_result = shutil.make_archive(str(local_base), "zip", str(source_path))
+
+        print("Moving final ZIP to Google Drive...")
+        shutil.move(local_result, str(final_dest))
+
+        print("ZIP created and moved to:")
+        print(str(final_dest))
 
         self.save_history({
             "type": "zip",
             "source": str(source_path),
-            "output": result,
+            "output": str(final_dest),
             "status": "completed"
         })
 
@@ -1887,18 +1829,23 @@ class AzuDlGC2GD:
 
         output_name = latest_folder.name + "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         output_name = self.sanitize_name(output_name)
-        output_base = self.archive_dir / output_name
 
-        print("Creating ZIP...")
-        result = shutil.make_archive(str(output_base), "zip", str(latest_folder))
+        local_base = Path("/content") / output_name
+        final_dest = self.archive_dir / f"{output_name}.zip"
 
-        print("ZIP created:")
-        print(result)
+        print("Creating ZIP locally on fast SSD...")
+        local_result = shutil.make_archive(str(local_base), "zip", str(latest_folder))
+
+        print("Moving final ZIP to Google Drive...")
+        shutil.move(local_result, str(final_dest))
+
+        print("ZIP created and moved to:")
+        print(str(final_dest))
 
         self.save_history({
             "type": "zip",
             "source": str(latest_folder),
-            "output": result,
+            "output": str(final_dest),
             "status": "completed"
         })
 
@@ -1970,6 +1917,12 @@ Torrent tools:
 7. Save aria2 session
 8. Back
 
+YouTube quality selection:
+AzuDl fetches video info before asking quality.
+Only qualities that actually exist in the video are shown.
+Audio is always merged into the video — silent downloads are not possible.
+For audio-only downloads, the output is saved as MP3 at 320kbps.
+
 Resume support:
 AzuDl uses aria2 session persistence.
 Session file:
@@ -1995,10 +1948,6 @@ For long-term seeding, use a seedbox or VPS.
 Torrent seeding:
 AzuDl uses 525600 minutes when seeding is enabled.
 Live seeding status shows upload speed, uploaded size, ratio, connections, seeders, and elapsed time.
-
-YouTube audio debug:
-YouTube often provides high quality video and audio as separate streams.
-If you select a video-only custom format ID, AzuDl tries to add best available audio automatically.
 
 Direct headers:
 You can pass optional headers as JSON.
@@ -2061,20 +2010,7 @@ def main():
             elif choice == "3":
                 url = input("YouTube URL: ").strip()
                 folder_name = input("Folder name optional: ").strip()
-                show_formats = input("Show available formats? y/n: ").strip().lower()
-
-                if show_formats == "y":
-                    app.print_youtube_formats(url)
-
-                audio = input("Audio only? y/n: ").strip().lower()
-                audio_only = audio == "y"
-
-                if audio_only:
-                    quality = "best"
-                else:
-                    quality = input("Quality best, 4320, 2160, 1440, 1080, 720, 480, 360: ").strip() or "best"
-
-                custom_format = input("Custom format ID optional: ").strip()
+                quality, audio_only = app.select_youtube_quality(url)
                 playlist_answer = input("Download playlist if detected? y/n: ").strip().lower()
                 playlist = playlist_answer != "n"
                 metadata_answer = input("Save metadata and thumbnail? y/n: ").strip().lower()
@@ -2085,7 +2021,6 @@ def main():
                     folder_name=folder_name,
                     quality=quality,
                     audio_only=audio_only,
-                    custom_format=custom_format,
                     playlist=playlist,
                     metadata=metadata
                 )
