@@ -1,5 +1,5 @@
 # AzuDl - GC2GD
-
+[![DevSponsors](https://devsponsors.github.io/assets/badges/sponsor.svg)](https://devsponsors.github.io)
 **Azizi Universal Downloader - Google Colab to Google Drive**
 
 AzuDl - GC2GD is a Google Colab based universal downloader that downloads supported files directly to Google Drive. It supports direct links, YouTube videos and playlists, torrent magnet links, `.torrent` files, private torrent mode, batch downloads, download history, file management tools, ZIP creation, SHA256 hashing, aria2 status monitoring, duplicate torrent detection, live seeding status, resumable downloads using aria2 session persistence, and a Colab GUI beta interface.
